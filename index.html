@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oceanova - Commercial Routing Engine</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body, html { height: 100%; margin: 0; padding: 0; background-color: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        #map { height: 100vh; width: 100vw; }
+        
+        /* LEFT PANEL */
+        #ui-panel {
+            position: absolute; top: 20px; left: 20px; z-index: 5;
+            background: rgba(13, 17, 23, 0.95); padding: 20px; border-radius: 10px; 
+            border: 1px solid #30363d; width: 380px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            max-height: 90vh; display: flex; flex-direction: column; overflow-y: auto;
+        }
+        
+        h3 { margin-top: 0; color: #58a6ff; font-size: 18px; margin-bottom: 15px; flex-shrink: 0;}
+        
+        .form-group { margin-bottom: 12px; flex-shrink: 0; }
+        label { display: block; font-size: 12px; margin-bottom: 4px; color: #8b949e; }
+        
+        input[type="text"], input[type="number"], select { 
+            width: 100%; padding: 8px; background: #010409; border: 1px solid #30363d; 
+            color: #c9d1d9; border-radius: 6px; box-sizing: border-box; font-size: 13px;
+        }
+        
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: #58a6ff; }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        
+        hr { border: 0; border-top: 1px solid #30363d; margin: 15px 0; flex-shrink: 0;}
+        
+        .metric-card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 10px; margin-bottom: 10px; flex-shrink: 0;}
+        .metric-card h4 { margin: 0 0 5px 0; font-size: 13px; display: flex; justify-content: space-between; }
+        .metric-data { font-size: 12px; color: #8b949e; line-height: 1.5; }
+        .data-highlight { color: #c9d1d9; font-weight: bold; }
+        
+        #recommendation-banner { padding: 8px; border-radius: 6px; font-weight: bold; font-size: 13px; text-align: center; margin-bottom: 10px; display: none; flex-shrink: 0;}
+        .banner-warning { background-color: rgba(210, 153, 34, 0.2); color: #d29922; border: 1px solid rgba(210, 153, 34, 0.4); }
+        .banner-safe { background-color: rgba(35, 134, 54, 0.2); color: #3fb950; border: 1px solid rgba(63, 185, 80, 0.4); }
+
+        #eta-warning { display: none; padding: 10px; background: rgba(248, 81, 73, 0.15); border: 1px solid #ff7b72; border-radius: 6px; margin-bottom: 10px; flex-shrink: 0;}
+        #eta-warning strong { color: #ff7b72; font-size: 13px; }
+        #eta-text { color: #c9d1d9; font-size: 12px; margin-top: 4px; line-height: 1.4; }
+
+        #waypoint-list { font-size: 13px; margin-top: 10px; border-top: 1px solid #30363d; padding-top: 10px; flex-shrink: 0;}
+        .waypoint-item { padding: 8px 0; border-bottom: 1px solid #21262d; }
+        .status-badge { display: inline-block; padding: 2px 6px; border-radius: 10px; font-size: 11px; font-weight: bold; margin-top: 4px;}
+        .status-CLEAR { background-color: rgba(35, 134, 54, 0.2); color: #3fb950; border: 1px solid rgba(63, 185, 80, 0.4);}
+        .status-CAUTION { background-color: rgba(210, 153, 34, 0.2); color: #d29922; border: 1px solid rgba(210, 153, 34, 0.4);}
+        .status-CRITICAL { background-color: rgba(248, 81, 73, 0.2); color: #ff7b72; border: 1px solid rgba(248, 81, 73, 0.4);}
+
+        /* RIGHT ROI PANEL */
+        #analytics-panel {
+            position: absolute; top: 20px; right: 20px; z-index: 5;
+            background: rgba(13, 17, 23, 0.95); padding: 20px; border-radius: 10px; 
+            border: 1px solid #30363d; width: 320px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            max-height: 90vh; overflow-y: auto; display: none; 
+        }
+
+        .panel-title { font-size: 11px; font-weight: bold; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        .panel-cost { font-size: 28px; font-weight: bold; color: #3fb950; margin-top: 0; margin-bottom: 15px; }
+
+        .roi-box { background: rgba(63, 185, 80, 0.1); border: 1px solid rgba(63, 185, 80, 0.4); border-radius: 6px; padding: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; }
+        .roi-col { display: flex; flex-direction: column; }
+        .roi-label { font-size: 11px; font-weight: bold; color: #3fb950; text-transform: uppercase; margin-bottom: 4px;}
+        .roi-value { font-size: 18px; font-weight: bold; color: #c9d1d9; }
+        .roi-subtext { font-size: 11px; color: #8b949e; text-align: right; }
+
+        .data-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #21262d; font-size: 13px; }
+        .data-label { color: #8b949e; }
+        .data-val { color: #c9d1d9; font-weight: 600; text-align: right;}
+        .data-val.red { color: #ff7b72; }
+        .data-val.green { color: #3fb950; }
+        .panel-spacer { height: 15px; }
+        
+        .btn-accept { width: 100%; padding: 12px; background-color: #238636; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; margin-top: 20px; }
+        .btn-accept:hover { background-color: #2ea043; }
+    </style>
+</head>
+<body>
+
+    <div id="ui-panel">
+        <h3>Oceanova Routing Engine</h3>
+        
+        <div class="form-group">
+            <label>Departure Port</label>
+            <select id="input-departure" onchange="debouncedCalculate()">
+                <option value="Miami (Off-Coast)">Miami (Off-Coast)</option>
+                <option value="Lisbon (Off-Coast)">Lisbon (Off-Coast)</option>
+                <option value="Rotterdam (Off-Coast)" selected>Rotterdam (Off-Coast)</option>
+                <option value="Singapore (Off-Coast)">Singapore (Off-Coast)</option>
+                <option value="New York (Off-Coast)">New York (Off-Coast)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Destination Port</label>
+            <select id="input-destination" onchange="debouncedCalculate()">
+                <option value="Miami (Off-Coast)">Miami (Off-Coast)</option>
+                <option value="Lisbon (Off-Coast)">Lisbon (Off-Coast)</option>
+                <option value="Rotterdam (Off-Coast)">Rotterdam (Off-Coast)</option>
+                <option value="Singapore (Off-Coast)" selected>Singapore (Off-Coast)</option>
+                <option value="New York (Off-Coast)">New York (Off-Coast)</option>
+            </select>
+        </div>
+
+        <div class="form-group" style="margin-top: 15px;">
+            <div class="slider-header">
+                <label>Commanded STW (kts)</label>
+                <span id="speed-display" style="font-weight: bold; color: #58a6ff; font-size: 14px;">13.0</span>
+            </div>
+            <input type="range" id="vessel-speed" min="8.0" max="18.0" step="0.1" value="13.0" oninput="updateSpeedUI()" onchange="debouncedCalculate()">
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 1;">
+                <label>Deadline (Days)</label>
+                <input type="number" id="laycan-days" value="90" step="0.5" onchange="debouncedCalculate()">
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label>DWT (t)</label>
+                <input type="number" id="vessel-dwt" value="50000" step="1000" onchange="debouncedCalculate()">
+            </div>
+        </div>
+
+        <div id="recommendation-banner" style="margin-top:10px;">Awaiting Calculation...</div>
+
+        <div id="eta-warning">
+            <strong>⚠ CONTRACT AT RISK: LATE ARRIVAL</strong>
+            <div id="eta-text"></div>
+        </div>
+
+        <div style="margin-top: 15px; margin-bottom: 15px; border-top: 1px dashed #30363d; padding-top: 15px;" id="compare-btn-container">
+            <button class="btn-accept" style="background-color: #1A3A5A; border: 1px solid #4A9EFF; margin-top: 0;" onclick="compareSuezVsCape()">Compare Route A vs B (Suez / Cape)</button>
+        </div>
+        <button id="exit-compare-btn" class="btn-accept" style="display: none; background-color: #30363d; border: 1px solid #8b949e; margin-bottom: 15px; margin-top: 0; color: #c9d1d9;" onclick="calculateDynamicRoute()">⬅ Exit Comparison (Back to Live Route)</button>
+        
+        <div id="compare-panel" style="display: none; margin-bottom: 15px;"></div>
+
+        <div class="metric-card" id="card-main">
+            <h4 style="color: #3fb950; font-size: 16px; margin-bottom: 10px;">
+                Main Route: <span id="total-cost">$--</span>
+            </h4>
+            <div class="metric-data" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <div>ECA Fuel (<span id="eca-mt"></span>t):<br><span class="data-highlight" id="eca-cost">$--</span></div>
+                <div>Non-ECA (<span id="non-eca-mt"></span>t):<br><span class="data-highlight" id="non-eca-cost">$--</span></div>
+                <div>Canal Dues:<br><span class="data-highlight" id="canal-cost">$--</span></div>
+                <div>CO2 Tax (<span id="co2-mt"></span>t):<br><span class="data-highlight" id="co2-cost">$--</span></div>
+            </div>
+            <hr style="margin: 10px 0; border-top: 1px dashed #30363d;">
+            <div class="metric-data">
+                Distance: <span class="data-highlight" id="main-dist">-- nm</span><br>
+                Duration: <span class="data-highlight" id="main-days">-- days</span>
+            </div>
+        </div>
+
+        <div class="metric-card" style="border-color: #d29922; background: rgba(210, 153, 34, 0.05); margin-top: 10px;" id="hydro-card">
+            <h4 style="color: #d29922; margin-bottom: 5px;">Hydrodynamic Weather Impact</h4>
+            <div class="metric-data" style="margin-bottom: 8px;" id="hydro-text">
+                At -- kn STW, weather reduces avg SOG to -- kn.
+            </div>
+            <div class="metric-data" style="display: flex; justify-content: space-between; border-top: 1px dashed #30363d; padding-top: 8px;">
+                <div>Delay:<br><span class="data-highlight" id="hydro-delay" style="color: #ff7b72;">-- hrs</span></div>
+                <div>Fuel Penalty:<br><span class="data-highlight" id="hydro-penalty" style="color: #ff7b72;">$--</span></div>
+            </div>
+        </div>
+
+        <div id="leg-table-container" class="metric-card" style="margin-top: 10px; display: none;">
+            <h4 style="color: #c9d1d9; margin-bottom: 8px;">Per-Leg Routing Breakdown</h4>
+            <div id="leg-table"></div>
+        </div>
+        
+        <div id="timeline-container">
+            <hr style="margin: 10px 0; border-top: 1px dashed #30363d;">
+            <div class="form-group">
+                <div class="slider-header">
+                    <label style="color: #58a6ff; font-weight: bold;">Voyage Timeline: <span id="timeline-display">+0 Hours (Departure)</span></label>
+                </div>
+                <div id="live-tracker-readout" style="font-size: 11.5px; color: #8b949e; margin-bottom: 6px; min-height: 16px; background: #010409; padding: 4px; border-radius: 4px; border: 1px solid #30363d; text-align: center;">
+                    Waiting for input...
+                </div>
+                <input type="range" id="timeline-slider" min="0" max="336" step="6" value="0" oninput="scrubTimeline()" disabled>
+            </div>
+        </div>
+
+        <div id="waypoint-list"></div>
+    </div>
+
+    <div id="analytics-panel">
+        <div class="panel-title">Total Voyage Cost</div>
+        <div class="panel-cost" id="roi-total-cost">$--</div> 
+
+        <div class="roi-box">
+            <div class="roi-col">
+                <span class="roi-label">Detour Saves</span>
+                <span class="roi-value" id="roi-net-saves" style="color:#3fb950;">$-- net</span>
+            </div>
+            <div class="roi-col" style="align-items: flex-end;">
+                <span class="roi-subtext">Weather avoided</span>
+                <span class="roi-value" style="font-size: 14px; color:#3fb950;">$--</span>
+            </div>
+        </div>
+
+        <div class="data-row"><span class="data-label">Distance (nm)</span><span class="data-val" id="roi-dist-main">--</span></div>
+        <div class="data-row"><span class="data-label">Detour adds</span><span class="data-val" id="roi-dist-delta">--</span></div>
+        <div class="data-row"><span class="data-label">Voyage days</span><span class="data-val" id="roi-days-main">--</span></div>
+        <div class="data-row"><span class="data-label">Detour adds</span><span class="data-val" id="roi-days-delta">--</span></div>
+        
+        <div class="panel-spacer"></div>
+
+        <div class="data-row"><span class="data-label">ECA dist (nm)</span><span class="data-val" id="roi-eca-dist">--</span></div>
+        <div class="data-row"><span class="data-label">Non-ECA dist</span><span class="data-val" id="roi-noneca-dist">--</span></div>
+
+        <div class="panel-spacer"></div>
+
+        <div class="data-row"><span class="data-label">Max Bf (main)</span><span class="data-val red" id="roi-bf-main">--</span></div>
+        <div class="data-row"><span class="data-label">Max Bf (detour)</span><span class="data-val green" id="roi-bf-detour">--</span></div>
+        <div class="data-row"><span class="data-label">Gale — main</span><span class="data-val red" id="roi-gale-main">--</span></div>
+        <div class="data-row"><span class="data-label">Gale — detour</span><span class="data-val green" id="roi-gale-detour">--</span></div>
+
+        <div class="panel-spacer"></div>
+
+        <div class="data-row"><span class="data-label">ECA fuel (MT)</span><span class="data-val" id="roi-eca-mt">--</span></div>
+        <div class="data-row"><span class="data-label">Non-ECA fuel</span><span class="data-val" id="roi-noneca-mt">--</span></div>
+        <div class="data-row"><span class="data-label">Total bunker</span><span class="data-val" id="roi-total-mt">--</span></div>
+
+        <div class="panel-spacer"></div>
+
+        <div class="data-row"><span class="data-label">ECA fuel cost</span><span class="data-val" id="roi-eca-usd">--</span></div>
+        <div class="data-row"><span class="data-label">Non-ECA cost</span><span class="data-val" id="roi-noneca-usd">--</span></div>
+        <div class="data-row"><span class="data-label">Total fuel</span><span class="data-val" id="roi-total-usd">--</span></div>
+
+        <div class="panel-spacer"></div>
+
+        <div class="data-row"><span class="data-label" style="color:#2ea043">Current data</span><span class="data-val green">OSCAR</span></div>
+        <div class="data-row"><span class="data-label" style="color:#2ea043">Corridor res.</span><span class="data-val green">28 km grid</span></div>
+
+        <button class="btn-accept" onclick="generatePDFReport()">Accept Detour Route & Export PDF</button>
+    </div>
+    
+    <div id="map"></div>
+
+    <script>
+        let map;
+        let mainPolyline, detourPolyline;
+        let markers = [];
+        let calcTimeout = null;
+        
+        let voyageForecastData = []; 
+        let windArrows = [];
+        let shipMarker = null;
+        let shipMarker2 = null; 
+        
+        // STATE MANAGEMENT FOR THE PDF EXPORTER
+        let currentCompareData = null;
+        let isCompareMode = false;
+        let activeVoyageMetrics = null;
+        let activeVoyageLegs = null;
+        let activeVoyageName = "Primary Route";
+        
+        // DISTANCE ARRAYS FOR PHYSICS
+        let rawPath = [];
+        let routeDistances = [];
+        let totalRouteDistance = 0;
+        let totalVoyageHours = 0;
+
+        let suezRouteCalc = {};
+        let capeRouteCalc = {};
+
+        const PORT_DB = {
+            "Miami (Off-Coast)": { lat: 25.5, lng: -79.0 },
+            "Lisbon (Off-Coast)": { lat: 38.5, lng: -10.0 },
+            "Rotterdam (Off-Coast)": { lat: 52.5, lng: 3.5 },
+            "Singapore (Off-Coast)": { lat: 1.1, lng: 103.6 },
+            "New York (Off-Coast)": { lat: 40.4, lng: -73.0 }
+        };
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 30.0, lng: -40.0 }, zoom: 3, disableDefaultUI: true, zoomControl: true,
+                mapId: "2c4ed773928de48bb0cbf503" // <-- Paste your Map ID here
+            });
+            map.data.loadGeoJson('http://127.0.0.1:5000/api/v1/eca-zones');
+            map.data.setStyle({ fillColor: '#ff7b72', strokeColor: '#ff7b72', strokeWeight: 1, fillOpacity: 0.15 });
+            calculateDynamicRoute();
+        }
+
+        function updateSpeedUI() {
+            document.getElementById("speed-display").innerText = document.getElementById("vessel-speed").value;
+        }
+
+        function debouncedCalculate() {
+            if (calcTimeout) clearTimeout(calcTimeout);
+            calcTimeout = setTimeout(() => { calculateDynamicRoute(); }, 300);
+        }
+
+        function createWindArrow(lat, lng, windSpeedKn, windDirDeg) {
+            const size = Math.min(8 + windSpeedKn * 0.8, 40);
+            const color = windSpeedKn < 15 ? '#3fb950' : windSpeedKn < 25 ? '#FAC775' : '#ff7b72';
+            const svg = `<svg width="${size}" height="${size*1.6}" viewBox="0 0 20 32" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(${windDirDeg}deg)"><polygon points="10,0 18,28 10,22 2,28" fill="${color}" opacity="0.85"/></svg>`;
+            return new google.maps.Marker({
+                position: {lat, lng},
+                map: map,
+                icon: {
+                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+                    anchor: new google.maps.Point(size/2, size/2)
+                },
+                title: `Wind: ${windSpeedKn.toFixed(1)} kn | Dir: ${windDirDeg}°`
+            });
+        }
+
+        function renderLegTable(legs) {
+            const rows = legs.map(l => {
+                const sogColor = l.sog_kn < l.stw_kn * 0.9 ? '#ff7b72' : l.sog_kn < l.stw_kn ? '#d29922' : '#3fb950';
+                const delayStr = l.delay_hrs > 0.1 ? `<span style="color:#ff7b72">+${l.delay_hrs}h</span>` : `<span style="color:#3fb950">${l.delay_hrs}h</span>`;
+                return `<tr style="border-bottom: 1px solid #21262d;">
+                <td style="padding: 6px 0;">${l.from} → ${l.to}</td>
+                <td style="text-align: center;">${l.dist_nm}nm</td>
+                <td style="text-align: center;">${l.wave_m}m</td>
+                <td style="color:${sogColor}; text-align: center; font-weight: bold;">${l.sog_kn}kn</td>
+                <td style="text-align: center;">${delayStr}</td>
+                <td style="text-align: right;">${l.fuel_mt} MT</td></tr>`;
+            }).join('');
+
+            document.getElementById('leg-table-container').style.display = "block";
+            document.getElementById('leg-table').innerHTML = `
+            <table style="width:100%; font-size:11px; border-collapse:collapse;">
+            <tr style="color:#8b949e; border-bottom:1px solid #30363d;">
+                <th style="text-align: left; padding-bottom: 4px;">Leg</th>
+                <th style="padding-bottom: 4px;">Dist</th>
+                <th style="padding-bottom: 4px;">Sea</th>
+                <th style="padding-bottom: 4px;">SOG</th>
+                <th style="padding-bottom: 4px;">Delay</th>
+                <th style="text-align: right; padding-bottom: 4px;">Fuel</th></tr>
+            ${rows}</table>`;
+        }
+
+        function precomputeDistances(path) {
+            let dists = [0];
+            let total = 0;
+            if (google.maps.geometry) {
+                for (let i = 1; i < path.length; i++) {
+                    let pA = new google.maps.LatLng(path[i-1].lat, path[i-1].lng);
+                    let pB = new google.maps.LatLng(path[i].lat, path[i].lng);
+                    total += google.maps.geometry.spherical.computeDistanceBetween(pA, pB) / 1000;
+                    dists.push(total);
+                }
+            }
+            return { dists, total };
+        }
+
+        function moveShip(marker, path, dists, targetDist) {
+            if (!marker || !path.length) return;
+            if (targetDist >= dists[dists.length-1]) { marker.setPosition(path[path.length-1]); return; }
+            if (targetDist <= 0) { marker.setPosition(path[0]); return; }
+            for (let i=1; i<dists.length; i++) {
+                if (dists[i] >= targetDist) {
+                    let d0 = dists[i-1], d1 = dists[i];
+                    let frac = (targetDist - d0) / (d1 - d0);
+                    let pA = new google.maps.LatLng(path[i-1].lat, path[i-1].lng);
+                    let pB = new google.maps.LatLng(path[i].lat, path[i].lng);
+                    marker.setPosition(google.maps.geometry.spherical.interpolate(pA, pB, frac));
+                    break;
+                }
+            }
+        }
+
+        function getForecastAtHour(routeObj, currentDist, dists, hour) {
+            let wpIndex = 0;
+            for (let i=1; i<dists.length; i++) {
+                if (dists[i] >= currentDist) { wpIndex = i; break; }
+            }
+            if (wpIndex >= routeObj.waypoints.length) wpIndex = routeObj.waypoints.length - 1;
+            let wp = routeObj.waypoints[wpIndex];
+            if (!wp) return {wave: '--', sog: '--', status: '--'};
+            let forecast = wp.timeline ? (wp.timeline.find(f => f.hour === hour) || wp.timeline[0]) : null;
+            if (!forecast) return {wave: '--', sog: '--', status: '--'};
+            return { wave: forecast.wave_height, sog: wp.sog || '--', status: forecast.status };
+        }
+
+        function scrubTimeline() {
+            const hoursOut = parseInt(document.getElementById("timeline-slider").value);
+            const days = Math.floor(hoursOut / 24);
+            const remainingHours = hoursOut % 24;
+            document.getElementById("timeline-display").innerText = `+${hoursOut} Hours (Day ${days}, ${remainingHours}h)`;
+
+            if (isCompareMode) {
+                windArrows.forEach(arrow => arrow.setMap(null)); windArrows = [];
+
+                let sPct = Math.min(1.0, hoursOut / suezRouteCalc.hours);
+                let sDist = sPct * suezRouteCalc.total;
+                moveShip(shipMarker, currentCompareData.suez.path, suezRouteCalc.dists, sDist);
+
+                if (!shipMarker2) {
+                    shipMarker2 = new google.maps.Marker({
+                        map: map, zIndex: 999,
+                        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 7, fillColor: "#FAC775", fillOpacity: 1, strokeWeight: 2, strokeColor: "#0d1117" }
+                    });
+                }
+                shipMarker2.setMap(map);
+                let cPct = Math.min(1.0, hoursOut / capeRouteCalc.hours);
+                let cDist = cPct * capeRouteCalc.total;
+                moveShip(shipMarker2, currentCompareData.cape.path, capeRouteCalc.dists, cDist);
+
+                let sForecast = getForecastAtHour(currentCompareData.suez, sDist, suezRouteCalc.dists, hoursOut);
+                let cForecast = getForecastAtHour(currentCompareData.cape, cDist, capeRouteCalc.dists, hoursOut);
+
+                let sText = sPct >= 1 ? `<span style="color:#3fb950; font-weight:bold;">Arrived at Port</span>` : `<span style="color:#58a6ff">${sForecast.wave}m Wave | ${sForecast.sog} kn SOG</span>`;
+                let cText = cPct >= 1 ? `<span style="color:#3fb950; font-weight:bold;">Arrived at Port</span>` : `<span style="color:#FAC775">${cForecast.wave}m Wave | ${cForecast.sog} kn SOG</span>`;
+
+                document.getElementById('live-tracker-readout').innerHTML = `🔵 Suez: ${sText} &nbsp;&nbsp;|&nbsp;&nbsp; 🟠 Cape: ${cText}`;
+
+            } else {
+                if (shipMarker2) shipMarker2.setMap(null);
+                let pct = Math.min(1.0, hoursOut / totalVoyageHours);
+                let tDist = pct * totalRouteDistance;
+                moveShip(shipMarker, rawPath, routeDistances, tDist);
+
+                let f = getForecastAtHour({waypoints: voyageForecastData}, tDist, routeDistances, hoursOut);
+                let fText = pct >= 1 ? `<span style="color:#3fb950; font-weight:bold;">Arrived at Port</span>` : `<span style="color:#58a6ff">${f.wave}m Wave | ${f.sog} kn SOG</span>`;
+                document.getElementById('live-tracker-readout').innerHTML = `Vessel Status: ${fText} | Zone: ${f.status}`;
+
+                windArrows.forEach(arrow => arrow.setMap(null)); windArrows = [];
+                if (voyageForecastData) {
+                    voyageForecastData.forEach((wp, index) => {
+                        const forecast = wp.timeline ? (wp.timeline.find(f => f.hour === hoursOut) || wp.timeline[0]) : wp.weather;
+                        if (index % 5 === 0 && forecast) { 
+                            windArrows.push(createWindArrow(wp.lat, wp.lng, forecast.wind_speed, forecast.wind_dir));
+                        }
+                    });
+                }
+            }
+        }
+
+        async function compareSuezVsCape() {
+            document.getElementById("compare-btn-container").style.display = "none";
+            document.getElementById("exit-compare-btn").style.display = "block";
+
+            const banner = document.getElementById("recommendation-banner");
+            banner.style.display = "block"; banner.className = ""; banner.innerText = "Simulating Corridors...";
+            banner.style.backgroundColor = "transparent"; banner.style.color = "#8b949e";
+            
+            try {
+                const speed = document.getElementById("vessel-speed").value;
+                const dwt = document.getElementById("vessel-dwt").value; 
+                const targetDays = document.getElementById("laycan-days").value; 
+                const depText = document.getElementById("input-departure").value;
+                const destText = document.getElementById("input-destination").value;
+                const depCoords = PORT_DB[depText];
+                const destCoords = PORT_DB[destText];
+                
+                const apiUrl = `http://127.0.0.1:5000/api/v1/compare-routes?start_lat=${depCoords.lat}&start_lng=${depCoords.lng}&start_name=${encodeURIComponent(depText)}&end_lat=${destCoords.lat}&end_lng=${destCoords.lng}&end_name=${encodeURIComponent(destText)}&speed=${speed}&dwt=${dwt}&target_days=${targetDays}`;
+                
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                
+                currentCompareData = data; 
+                
+                banner.innerText = "✓ COMPARISON COMPLETE"; banner.className = "banner-safe";
+                renderComparison(data);
+            } catch (error) {
+                banner.innerText = "⚠ API ERROR"; banner.className = "banner-warning";
+            }
+        }
+
+        function renderComparison(data) {
+            isCompareMode = true; 
+
+            document.getElementById('card-main').style.display = "none";
+            document.getElementById('leg-table-container').style.display = "none";
+            document.getElementById('analytics-panel').style.display = "none";
+            document.getElementById('eta-warning').style.display = "none";
+            document.getElementById('hydro-card').style.display = "none";
+            document.getElementById('waypoint-list').style.display = "none";
+            document.getElementById('timeline-container').style.display = "block";
+
+            if (mainPolyline) mainPolyline.setMap(null);
+            if (detourPolyline) detourPolyline.setMap(null);
+            markers.forEach(m => m.setMap(null));
+            windArrows.forEach(a => a.setMap(null));
+            
+            if (!shipMarker) {
+                shipMarker = new google.maps.Marker({
+                    map: map, zIndex: 999,
+                    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 7, fillColor: "#58a6ff", fillOpacity: 1, strokeWeight: 2, strokeColor: "#0d1117" }
+                });
+            }
+
+            suezRouteCalc = precomputeDistances(data.suez.path);
+            suezRouteCalc.hours = data.suez.metrics.voyage_days * 24;
+            capeRouteCalc = precomputeDistances(data.cape.path);
+            capeRouteCalc.hours = data.cape.metrics.voyage_days * 24;
+
+            const slider = document.getElementById("timeline-slider");
+            slider.max = Math.ceil(Math.max(suezRouteCalc.hours, capeRouteCalc.hours));
+            slider.value = 0;
+            slider.disabled = false;
+
+            const suezCoords = data.suez.path.map(wp => ({ lat: wp.lat, lng: wp.lng }));
+            mainPolyline = new google.maps.Polyline({
+                path: suezCoords, geodesic: true, strokeColor: "#58a6ff", strokeOpacity: 0.8, strokeWeight: 5, zIndex: 2
+            });
+            mainPolyline.setMap(map);
+            
+            const capeCoords = data.cape.path.map(wp => ({ lat: wp.lat, lng: wp.lng }));
+            const dashedLineSymbol = { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 };
+            detourPolyline = new google.maps.Polyline({
+                path: capeCoords, geodesic: true, strokeColor: "#FAC775", strokeOpacity: 0.01, strokeWeight: 15,
+                icons: [{ icon: dashedLineSymbol, offset: '0', repeat: '15px' }], zIndex: 1
+            });
+            detourPolyline.setMap(map);
+
+            mainPolyline.addListener('click', () => {
+                mainPolyline.setOptions({strokeWeight: 7, zIndex: 3}); 
+                detourPolyline.setOptions({strokeWeight: 15, zIndex: 1}); 
+                openCompareRightPanel('SUEZ');
+            });
+            
+            detourPolyline.addListener('click', () => {
+                detourPolyline.setOptions({strokeWeight: 15, zIndex: 3}); 
+                mainPolyline.setOptions({strokeWeight: 5, zIndex: 1}); 
+                openCompareRightPanel('CAPE');
+            });
+            
+            const rec = data.recommendation;
+            const formatUSD = (num) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
+            
+            const s = data.suez.metrics;
+            const c = data.cape.metrics;
+            
+            const compPanel = document.getElementById('compare-panel');
+            compPanel.style.display = "block";
+            compPanel.innerHTML = `
+            <h4 style="color:#c9d1d9; margin: 0 0 10px 0; font-size:14px;">Route A vs B: Suez vs Cape</h4>
+            <div style="font-size:11px; color:#8b949e; margin-bottom:8px;">Click a route on the map or below to view detailed analytics.</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <div id="card-suez-comp" style="border:1px solid ${rec === 'SUEZ' ? '#3fb950' : '#30363d'}; background: ${rec === 'SUEZ' ? 'rgba(63, 185, 80, 0.1)' : '#161b22'}; border-radius:8px; padding:10px; cursor:pointer;" onclick="openCompareRightPanel('SUEZ')">
+                    <p style="font-size:12px; font-weight:bold; color:#58a6ff; margin:0 0 5px;">🔵 Via Suez ${rec === 'SUEZ' ? '✓ REC' : ''}</p>
+                    <p style="font-size:11px; color:#8b949e; margin:0 0 5px;">${s.distance_nm} nm · ${s.voyage_days} days</p>
+                    <p style="font-size:14px; color:#c9d1d9; font-weight:bold; margin:0 0 5px;">${formatUSD(s.total_voyage_cost_usd)}</p>
+                    <p style="font-size:10px; color:${s.eta_status === 'ON_TIME' ? '#3fb950' : '#ff7b72'}; margin:0;">${s.eta_status === 'ON_TIME' ? '✓ Meets laycan' : '⚠ Misses laycan'}</p>
+                </div>
+                <div id="card-cape-comp" style="border:1px solid ${rec === 'CAPE' ? '#3fb950' : '#30363d'}; background: ${rec === 'CAPE' ? 'rgba(63, 185, 80, 0.1)' : '#161b22'}; border-radius:8px; padding:10px; cursor:pointer;" onclick="openCompareRightPanel('CAPE')">
+                    <p style="font-size:12px; font-weight:bold; color:#FAC775; margin:0 0 5px;">🟠 Via Cape ${rec === 'CAPE' ? '✓ REC' : ''}</p>
+                    <p style="font-size:11px; color:#8b949e; margin:0 0 5px;">${c.distance_nm} nm · ${c.voyage_days} days</p>
+                    <p style="font-size:14px; color:#c9d1d9; font-weight:bold; margin:0 0 5px;">${formatUSD(c.total_voyage_cost_usd)}</p>
+                    <p style="font-size:10px; color:${c.eta_status === 'ON_TIME' ? '#3fb950' : '#ff7b72'}; margin:0;">${c.eta_status === 'ON_TIME' ? '✓ Meets laycan' : '⚠ Misses laycan'}</p>
+                </div>
+            </div>`;
+            
+            const bounds = new google.maps.LatLngBounds();
+            suezCoords.forEach(wp => bounds.extend(new google.maps.LatLng(wp.lat, wp.lng)));
+            capeCoords.forEach(wp => bounds.extend(new google.maps.LatLng(wp.lat, wp.lng)));
+            map.fitBounds(bounds);
+
+            scrubTimeline();
+
+            openCompareRightPanel(data.recommendation);
+        }
+
+        function openCompareRightPanel(selectedRoute) {
+            if (!currentCompareData) return;
+            
+            const isSuez = selectedRoute === 'SUEZ';
+            const selectedData = isSuez ? currentCompareData.suez : currentCompareData.cape;
+            const otherData = isSuez ? currentCompareData.cape : currentCompareData.suez;
+            const mSelected = selectedData.metrics;
+            
+            const mSuez = currentCompareData.suez.metrics;
+            const mCape = currentCompareData.cape.metrics;
+
+            activeVoyageMetrics = mSelected;
+            activeVoyageLegs = selectedData.legs;
+            activeVoyageName = isSuez ? "Via Suez" : "Via Cape";
+
+            const formatUSD = (num) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
+
+            document.getElementById('card-suez-comp').style.borderColor = isSuez ? '#3fb950' : '#30363d';
+            document.getElementById('card-cape-comp').style.borderColor = !isSuez ? '#3fb950' : '#30363d';
+
+            document.getElementById("analytics-panel").style.display = "block";
+            document.querySelector(".panel-title").innerText = `Total Voyage Cost (${isSuez ? 'Via Suez' : 'Via Cape'})`;
+            document.getElementById("roi-total-cost").innerText = formatUSD(mSelected.total_voyage_cost_usd);
+
+            const totalCostDelta = mCape.total_voyage_cost_usd - mSuez.total_voyage_cost_usd;
+            const bfDifference = Math.max(0, mSuez.max_bf - mCape.max_bf);
+            const weatherRiskValue = bfDifference * 15000; 
+            const netSavings = weatherRiskValue - totalCostDelta;
+
+            document.getElementById("roi-net-saves").innerText = formatUSD(netSavings) + " net";
+            document.getElementById("roi-net-saves").style.color = "#3fb950"; // ALWAYS GREEN
+            document.querySelector(".roi-subtext + .roi-value").innerText = formatUSD(weatherRiskValue);
+
+            document.getElementById("roi-dist-main").innerText = mSuez.distance_nm;
+            const distDelta = mCape.distance_nm - mSuez.distance_nm;
+            document.getElementById("roi-dist-delta").innerText = (distDelta > 0 ? "+" : "") + distDelta + " nm";
+            
+            document.getElementById("roi-days-main").innerText = mSuez.voyage_days;
+            const daysDelta = mCape.voyage_days - mSuez.voyage_days;
+            document.getElementById("roi-days-delta").innerText = (daysDelta > 0 ? "+" : "") + daysDelta.toFixed(1) + " days";
+            
+            document.getElementById("roi-eca-dist").innerText = mSuez.eca_dist;
+            document.getElementById("roi-noneca-dist").innerText = mSuez.non_eca_dist;
+            
+            document.getElementById("roi-bf-main").innerText = `Bf ${mSuez.max_bf}`;
+            document.getElementById("roi-bf-detour").innerText = `Bf ${mCape.max_bf}`;
+            document.getElementById("roi-gale-main").innerText = mSuez.gale_risk;
+            document.getElementById("roi-gale-detour").innerText = mCape.gale_risk;
+
+            document.getElementById("roi-eca-mt").innerText = mSuez.eca_fuel_mt;
+            document.getElementById("roi-noneca-mt").innerText = mSuez.non_eca_fuel_mt;
+            document.getElementById("roi-total-mt").innerText = `${mSuez.eca_fuel_mt + mSuez.non_eca_fuel_mt} MT`;
+
+            document.getElementById("roi-eca-usd").innerText = formatUSD(mSuez.eca_fuel_usd);
+            document.getElementById("roi-noneca-usd").innerText = formatUSD(mSuez.non_eca_fuel_usd);
+            document.getElementById("roi-total-usd").innerText = formatUSD(mSuez.eca_fuel_usd + mSuez.non_eca_fuel_usd);
+
+            document.getElementById('hydro-card').style.display = "block";
+            document.getElementById('leg-table-container').style.display = "block";
+            document.getElementById('waypoint-list').style.display = "block";
+
+            document.getElementById("hydro-text").innerText = `At ${mSelected.speed_stw.toFixed(1)} kn STW, weather reduces avg SOG to ${mSelected.avg_sog} kn.`;
+            document.getElementById("hydro-delay").innerText = `+${mSelected.weather_delay_hours} hrs`;
+            document.getElementById("hydro-penalty").innerText = `+${mSelected.fuel_penalty_mt} MT (${formatUSD(mSelected.fuel_penalty_usd)})`;
+
+            renderLegTable(selectedData.legs);
+
+            const listContainer = document.getElementById("waypoint-list");
+            listContainer.innerHTML = `<div style='color:#8b949e; margin-bottom:10px;'><strong>Voyage Waypoints (Hour 0) - ${selectedRoute}</strong></div>`; 
+            
+            selectedData.waypoints.forEach(wp => {
+                const initialForecast = wp.timeline ? wp.timeline[0] : wp.weather;
+                let pinBg = "#3fb950";
+                if (initialForecast.status === "CAUTION") pinBg = "#d29922";
+                if (initialForecast.status === "CRITICAL") pinBg = "#ff7b72";
+
+                const waveH = initialForecast.wave_height || initialForecast.wave_meters || 0;
+                const item = document.createElement("div");
+                item.className = "waypoint-item";
+                item.innerHTML = `
+                    <div style="font-weight: 600; color: #c9d1d9;">${wp.name}</div>
+                    <div style="color: #8b949e; font-size: 11px; margin-top: 3px;">Wave: ${waveH}m | ${wp.condition || 'Clear'} | SOG: ${wp.sog || '--'} kn</div>
+                    <span class="status-badge status-${initialForecast.status || 'CLEAR'}">${initialForecast.status || 'CLEAR'}</span>
+                `;
+                listContainer.appendChild(item);
+            });
+
+            const warningBox = document.getElementById("eta-warning");
+            if (mSelected.eta_status === "LATE") {
+                warningBox.style.display = "block";
+                document.getElementById("eta-text").innerHTML = mSelected.advanced_warning;
+            } else {
+                warningBox.style.display = "none";
+            }
+        }
+
+        async function calculateDynamicRoute() {
+            isCompareMode = false; 
+            if (shipMarker2) shipMarker2.setMap(null); 
+
+            // Extract values at the beginning
+            const speed = document.getElementById("vessel-speed").value;
+            const dwt = document.getElementById("vessel-dwt").value; 
+            const targetDays = document.getElementById("laycan-days").value; 
+            const depText = document.getElementById("input-departure").value;
+            const destText = document.getElementById("input-destination").value;
+            const depCoords = PORT_DB[depText];
+            const destCoords = PORT_DB[destText];
+
+            // FIX: Context-Aware Comparison Button Visibility
+            const isValidCompareRoute = depText.includes("Singapore") || destText.includes("Singapore");
+            if (isValidCompareRoute && depText !== destText) {
+                document.getElementById("compare-btn-container").style.display = "block";
+            } else {
+                document.getElementById("compare-btn-container").style.display = "none";
+            }
+            
+            document.getElementById("exit-compare-btn").style.display = "none";
+            document.getElementById('card-main').style.display = "block";
+            document.getElementById('compare-panel').style.display = "none";
+            document.getElementById('timeline-container').style.display = "block";
+            document.getElementById('hydro-card').style.display = "block";
+            document.getElementById('waypoint-list').style.display = "block";
+            document.querySelector(".panel-title").innerText = "Total Voyage Cost";
+
+            const banner = document.getElementById("recommendation-banner");
+            banner.style.display = "block"; banner.className = ""; banner.innerText = "A* AI Calculating...";
+            banner.style.backgroundColor = "transparent"; banner.style.color = "#8b949e";
+            
+            try {
+                const apiUrl = `http://127.0.0.1:5000/api/v1/route-analysis?start_lat=${depCoords.lat}&start_lng=${depCoords.lng}&start_name=${encodeURIComponent(depText)}&end_lat=${destCoords.lat}&end_lng=${destCoords.lng}&end_name=${encodeURIComponent(destText)}&speed=${speed}&dwt=${dwt}&target_days=${targetDays}`;
+                
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                activeVoyageMetrics = data.routes.main.metrics;
+                activeVoyageLegs = data.routes.main.legs;
+                activeVoyageName = "Primary Route";
+
+                banner.innerText = "✓ LIVE ROUTE ACTIVE"; banner.className = "banner-safe";
+
+                const mMain = data.routes.main.metrics;
+                const mDetour = data.routes.detour.metrics;
+                const formatUSD = (num) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
+
+                const warningBox = document.getElementById("eta-warning");
+                if (mMain.eta_status === "LATE") {
+                    warningBox.style.display = "block";
+                    document.getElementById("eta-text").innerHTML = mMain.advanced_warning;
+                } else {
+                    warningBox.style.display = "none";
+                }
+
+                document.getElementById("hydro-text").innerText = `At ${mMain.speed_stw.toFixed(1)} kn STW, weather reduces avg SOG to ${mMain.avg_sog} kn.`;
+                document.getElementById("hydro-delay").innerText = `+${mMain.weather_delay_hours} hrs`;
+                document.getElementById("hydro-penalty").innerText = `+${mMain.fuel_penalty_mt} MT (${formatUSD(mMain.fuel_penalty_usd)})`;
+
+                document.getElementById("total-cost").innerText = formatUSD(mMain.total_voyage_cost_usd);
+                document.getElementById("eca-mt").innerText = mMain.eca_fuel_mt;
+                document.getElementById("eca-cost").innerText = formatUSD(mMain.eca_fuel_usd);
+                document.getElementById("non-eca-mt").innerText = mMain.non_eca_fuel_mt;
+                document.getElementById("non-eca-cost").innerText = formatUSD(mMain.non_eca_fuel_usd);
+                document.getElementById("canal-cost").innerText = formatUSD(mMain.canal_dues_usd);
+                document.getElementById("co2-mt").innerText = mMain.co2_tonnes;
+                document.getElementById("co2-cost").innerText = formatUSD(mMain.co2_cost_usd);
+                document.getElementById("main-dist").innerText = `${mMain.distance_nm} nm`;
+                document.getElementById("main-days").innerText = `${mMain.voyage_days} days`;
+
+                renderLegTable(data.routes.main.legs);
+
+                document.getElementById("analytics-panel").style.display = "block";
+                document.getElementById("roi-total-cost").innerText = formatUSD(mMain.total_voyage_cost_usd);
+
+                const totalCostDelta = mDetour.total_voyage_cost_usd - mMain.total_voyage_cost_usd;
+                const distDelta = mDetour.distance_nm - mMain.distance_nm;
+                const daysDelta = mDetour.voyage_days - mMain.voyage_days;
+                
+                const bfDifference = Math.max(0, mMain.max_bf - mDetour.max_bf);
+                const weatherRiskValue = bfDifference * 15000; 
+                const netSavings = weatherRiskValue - totalCostDelta;
+                
+                document.getElementById("roi-net-saves").innerText = formatUSD(netSavings) + " net";
+                document.getElementById("roi-net-saves").style.color = "#3fb950"; // ALWAYS GREEN
+                document.querySelector(".roi-subtext + .roi-value").innerText = formatUSD(weatherRiskValue);
+
+                document.getElementById("roi-dist-main").innerText = mMain.distance_nm;
+                document.getElementById("roi-dist-delta").innerText = `+${Math.abs(distDelta)} nm`;
+                document.getElementById("roi-days-main").innerText = mMain.voyage_days;
+                document.getElementById("roi-days-delta").innerText = `+${Math.abs(daysDelta).toFixed(1)} days`;
+                
+                document.getElementById("roi-eca-dist").innerText = mMain.eca_dist;
+                document.getElementById("roi-noneca-dist").innerText = mMain.non_eca_dist;
+                
+                document.getElementById("roi-bf-main").innerText = `Bf ${mMain.max_bf}`;
+                document.getElementById("roi-bf-detour").innerText = `Bf ${mDetour.max_bf}`;
+                document.getElementById("roi-gale-main").innerText = mMain.gale_risk;
+                document.getElementById("roi-gale-detour").innerText = mDetour.gale_risk;
+
+                document.getElementById("roi-eca-mt").innerText = mMain.eca_fuel_mt;
+                document.getElementById("roi-noneca-mt").innerText = mMain.non_eca_fuel_mt;
+                document.getElementById("roi-total-mt").innerText = `${mMain.eca_fuel_mt + mMain.non_eca_fuel_mt} MT`;
+
+                document.getElementById("roi-eca-usd").innerText = formatUSD(mMain.eca_fuel_usd);
+                document.getElementById("roi-noneca-usd").innerText = formatUSD(mMain.non_eca_fuel_usd);
+                document.getElementById("roi-total-usd").innerText = formatUSD(mMain.eca_fuel_usd + mMain.non_eca_fuel_usd);
+
+                if (mainPolyline) mainPolyline.setMap(null);
+                if (detourPolyline) detourPolyline.setMap(null);
+                markers.forEach(mark => mark.setMap(null));
+                markers = [];
+
+                const mainCoords = data.routes.main.path.map(wp => ({ lat: wp.lat, lng: wp.lng }));
+                mainPolyline = new google.maps.Polyline({
+                    path: mainCoords, geodesic: true, strokeColor: "#58a6ff", strokeOpacity: 0.8, strokeWeight: 3
+                });
+                mainPolyline.setMap(map);
+
+                const detourCoords = data.routes.detour.path.map(wp => ({ lat: wp.lat, lng: wp.lng }));
+                const dashedLineSymbol = { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 };
+                detourPolyline = new google.maps.Polyline({
+                    path: detourCoords, geodesic: true, strokeColor: "#d29922", strokeOpacity: 0, 
+                    icons: [{ icon: dashedLineSymbol, offset: '0', repeat: '15px' }]
+                });
+                detourPolyline.setMap(map);
+
+                rawPath = data.routes.main.path;
+                let calc = precomputeDistances(rawPath);
+                routeDistances = calc.dists;
+                totalRouteDistance = calc.total;
+                totalVoyageHours = mMain.voyage_days * 24;
+                
+                const timelineSlider = document.getElementById("timeline-slider");
+                timelineSlider.max = Math.ceil(totalVoyageHours);
+                timelineSlider.value = 0;
+                timelineSlider.disabled = false;
+
+                if (!shipMarker) {
+                    shipMarker = new google.maps.Marker({
+                        map: map, zIndex: 999,
+                        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 7, fillColor: "#58a6ff", fillOpacity: 1, strokeWeight: 2, strokeColor: "#0d1117" }
+                    });
+                }
+                shipMarker.setMap(map);
+
+                voyageForecastData = data.routes.main.waypoints;
+                scrubTimeline(); 
+
+                const listContainer = document.getElementById("waypoint-list");
+                listContainer.innerHTML = "<div style='color:#8b949e; margin-bottom:10px;'><strong>Voyage Waypoints (Hour 0)</strong></div>"; 
+
+                data.routes.main.waypoints.forEach(wp => {
+                    const initialForecast = wp.timeline ? wp.timeline[0] : wp.weather;
+                    let pinBg = "#3fb950";
+                    if (initialForecast.status === "CAUTION") pinBg = "#d29922";
+                    if (initialForecast.status === "CRITICAL") pinBg = "#ff7b72";
+
+                    const pinView = new google.maps.marker.PinElement({ background: pinBg, borderColor: "#0d1117", glyphColor: "#ffffff" });
+                    const marker = new google.maps.marker.AdvancedMarkerElement({ position: { lat: wp.lat, lng: wp.lng }, map: map, title: wp.name, content: pinView.element });
+                    markers.push(marker);
+
+                    const waveH = initialForecast.wave_height || initialForecast.wave_meters || 0;
+                    const item = document.createElement("div");
+                    item.className = "waypoint-item";
+                    item.innerHTML = `
+                        <div style="font-weight: 600; color: #c9d1d9;">${wp.name}</div>
+                        <div style="color: #8b949e; font-size: 11px; margin-top: 3px;">Wave: ${waveH}m | ${wp.condition || 'Clear'} | SOG: ${wp.sog || '--'} kn</div>
+                        <span class="status-badge status-${initialForecast.status || 'CLEAR'}">${initialForecast.status || 'CLEAR'}</span>
+                    `;
+                    listContainer.appendChild(item);
+                });
+
+                const bounds = new google.maps.LatLngBounds();
+                bounds.extend(new google.maps.LatLng(depCoords.lat, depCoords.lng)); 
+                bounds.extend(new google.maps.LatLng(destCoords.lat, destCoords.lng));
+                map.fitBounds(bounds);
+
+            } catch (error) {
+                console.error(error);
+                banner.innerText = "⚠ ROUTING ERROR: Path blocked or API failed."; 
+                banner.className = "banner-warning";
+                
+                document.getElementById("analytics-panel").style.display = "none";
+                if (shipMarker) shipMarker.setMap(null);
+                if (mainPolyline) mainPolyline.setMap(null);
+                if (detourPolyline) detourPolyline.setMap(null);
+                markers.forEach(mark => mark.setMap(null));
+                windArrows.forEach(arrow => arrow.setMap(null));
+            }
+        }
+
+        function generatePDFReport() {
+            if (!activeVoyageMetrics || !activeVoyageLegs) {
+                alert("Please wait for the route to finish calculating before exporting.");
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const formatUSD = (num) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
+
+            const depPort = document.getElementById("input-departure").value;
+            const destPort = document.getElementById("input-destination").value;
+            const vesselSpeed = document.getElementById("vessel-speed").value;
+            const vesselDwt = document.getElementById("vessel-dwt").value;
+            const m = activeVoyageMetrics;
+
+            doc.setFontSize(22);
+            doc.setTextColor(41, 128, 185); 
+            doc.text("OCEANOVA ROUTING ENGINE", 20, 20);
+
+            doc.setFontSize(14);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`Official Master Voyage Orders - ${activeVoyageName}`, 20, 30);
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 38);
+            doc.line(20, 42, 190, 42); 
+
+            doc.setFontSize(12);
+            doc.setTextColor(0, 0, 0);
+            doc.text("ROUTE SPECIFICATIONS", 20, 55);
+            doc.setFontSize(10);
+            doc.text(`Departure: ${depPort}`, 20, 65);
+            doc.text(`Destination: ${destPort}`, 20, 72);
+            doc.text(`Commanded Speed (STW): ${vesselSpeed} knots`, 20, 79);
+            doc.text(`Vessel DWT: ${vesselDwt} tonnes`, 20, 86);
+            doc.text(`Total Distance: ${m.distance_nm} nm`, 120, 65);
+            doc.text(`Estimated Duration: ${m.voyage_days} days`, 120, 72);
+            
+            if (m.eta_status === "LATE") {
+                doc.setTextColor(255, 123, 114); 
+                doc.text(`Contract Risk: LATE ARRIVAL`, 120, 79);
+            } else {
+                doc.setTextColor(63, 185, 80); 
+                doc.text(`Contract Risk: MEETS LAYCAN`, 120, 79);
+            }
+            doc.setTextColor(0, 0, 0);
+
+            doc.setFontSize(12);
+            doc.text("FINANCIAL & EXPENSE REPORT", 20, 105);
+            doc.setFontSize(10);
+            doc.text(`ECA Fuel Cost (${m.eca_fuel_mt} MT):`, 20, 115); doc.text(`${formatUSD(m.eca_fuel_usd)}`, 90, 115);
+            doc.text(`Non-ECA Fuel Cost (${m.non_eca_fuel_mt} MT):`, 20, 122); doc.text(`${formatUSD(m.non_eca_fuel_usd)}`, 90, 122);
+            doc.text(`EU ETS CO2 Tax (${m.co2_tonnes} MT):`, 20, 129); doc.text(`${formatUSD(m.co2_cost_usd)}`, 90, 129);
+            doc.text(`Suez Canal Dues:`, 20, 136); doc.text(`${formatUSD(m.canal_dues_usd)}`, 90, 136);
+            
+            doc.setFont("helvetica", "bold");
+            doc.text(`Total Projected Voyage Cost:`, 20, 146); 
+            doc.text(`${formatUSD(m.total_voyage_cost_usd)}`, 90, 146);
+            doc.setFont("helvetica", "normal");
+
+            doc.setFontSize(12);
+            doc.text("METEOROLOGICAL IMPACT", 120, 105);
+            doc.setFontSize(10);
+            doc.text(`Max Beaufort Force: ${m.max_bf}`, 120, 115);
+            doc.text(`High Gale Risk Zone: ${m.gale_risk}`, 120, 122);
+            
+            doc.setTextColor(255, 123, 114); 
+            doc.text(`Hydrodynamic Delay: +${m.weather_delay_hours} hrs`, 120, 129);
+            doc.text(`Weather Fuel Penalty: +${m.fuel_penalty_mt} MT`, 120, 136);
+
+            const netSavingsText = document.getElementById("roi-net-saves").innerText;
+            if (netSavingsText && !netSavingsText.includes("--")) {
+                doc.setTextColor(63, 185, 80); 
+                doc.text(`Strategic Weather Detour Saves: ${netSavingsText}`, 120, 146);
+            }
+
+            doc.setTextColor(0, 0, 0);
+            doc.line(20, 155, 190, 155);
+
+            doc.setFontSize(12);
+            doc.text("DETAILED PER-LEG ROUTING BREAKDOWN", 20, 170);
+
+            let y = 185;
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "bold");
+            doc.text("LEG", 20, y);
+            doc.text("DIST (nm)", 90, y);
+            doc.text("WAVE", 115, y);
+            doc.text("SOG", 135, y);
+            doc.text("DELAY", 155, y);
+            doc.text("FUEL", 175, y);
+            y += 8;
+            doc.setFont("helvetica", "normal");
+
+            activeVoyageLegs.forEach(leg => {
+                if (y > 280) { 
+                    doc.addPage(); 
+                    y = 20; 
+                }
+                
+                doc.setTextColor(0, 0, 0);
+                let legName = `${leg.from} -> ${leg.to}`;
+                if (legName.length > 35) legName = legName.substring(0, 32) + "...";
+                
+                doc.text(legName, 20, y);
+                doc.text(`${leg.dist_nm}`, 90, y);
+                doc.text(`${leg.wave_m}m`, 115, y);
+
+                if (leg.sog_kn < leg.stw_kn * 0.9) doc.setTextColor(255, 123, 114);
+                else if (leg.sog_kn < leg.stw_kn) doc.setTextColor(250, 199, 117);
+                else doc.setTextColor(63, 185, 80);
+                doc.text(`${leg.sog_kn} kn`, 135, y);
+
+                if (leg.delay_hrs > 0.1) doc.setTextColor(255, 123, 114);
+                else doc.setTextColor(63, 185, 80);
+                doc.text(leg.delay_hrs > 0.1 ? `+${leg.delay_hrs}h` : `${leg.delay_hrs}h`, 155, y);
+
+                doc.setTextColor(0,0,0);
+                doc.text(`${leg.fuel_mt} MT`, 175, y);
+                
+                y += 6;
+            });
+
+            doc.save(`Oceanova_Voyage_${depPort.substring(0,3)}_${destPort.substring(0,3)}.pdf`);
+        }
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY_HERE&libraries=marker,geometry&callback=initMap" async defer></script>
+</body>
+</html>
