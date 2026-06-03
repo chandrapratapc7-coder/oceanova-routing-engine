@@ -451,7 +451,7 @@
                 const depCoords = PORT_DB[depText];
                 const destCoords = PORT_DB[destText];
                 
-                const apiUrl = `http://127.0.0.1:5000/api/v1/compare-routes?start_lat=${depCoords.lat}&start_lng=${depCoords.lng}&start_name=${encodeURIComponent(depText)}&end_lat=${destCoords.lat}&end_lng=${destCoords.lng}&end_name=${encodeURIComponent(destText)}&speed=${speed}&dwt=${dwt}&target_days=${targetDays}`;
+                const apiUrl = `https://oceanova-routing-engine.onrender.com/api/v1/compare-routes?start_lat=${depCoords.lat}&start_lng=${depCoords.lng}&start_name=${encodeURIComponent(depText)}&end_lat=${destCoords.lat}&end_lng=${destCoords.lng}&end_name=${encodeURIComponent(destText)}&speed=${speed}&dwt=${dwt}&target_days=${targetDays}`;
                 
                 const response = await fetch(apiUrl);
                 const data = await response.json();
