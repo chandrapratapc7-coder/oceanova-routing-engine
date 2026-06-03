@@ -2,7 +2,7 @@ import numpy as np
 import pickle, os
 from global_land_mask import globe 
 
-GRID_RES = 1.0 # degrees — change to 0.5 later for better accuracy
+GRID_RES = 0.1 # degrees — change to 0.5 later for better accuracy
 LAT_RANGE = np.arange(-80, 81, GRID_RES)
 LON_RANGE = np.arange(-180, 181, GRID_RES)
 N_LAT = len(LAT_RANGE)
