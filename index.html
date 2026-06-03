@@ -282,7 +282,7 @@
                 center: { lat: 30.0, lng: -40.0 }, zoom: 3, disableDefaultUI: true, zoomControl: true,
                 mapId: "2c4ed773928de48bb0cbf503" // <-- Paste your Map ID here
             });
-            map.data.loadGeoJson('https://oceanova-routing-engine.onrender.com');
+            // map.data.loadGeoJson('https://oceanova-routing-engine.onrender.com'); // Commented out to prevent the 404 error
             map.data.setStyle({ fillColor: '#ff7b72', strokeColor: '#ff7b72', strokeWeight: 1, fillOpacity: 0.15 });
             calculateDynamicRoute();
         }
@@ -690,7 +690,8 @@
             banner.style.backgroundColor = "transparent"; banner.style.color = "#8b949e";
             
             try {
-                const apiUrl = `http://127.0.0.1:5000/api/v1/route-analysis?start_lat=${depCoords.lat}&start_lng=${depCoords.lng}&start_name=${encodeURIComponent(depText)}&end_lat=${destCoords.lat}&end_lng=${destCoords.lng}&end_name=${encodeURIComponent(destText)}&speed=${speed}&dwt=${dwt}&target_days=${targetDays}`;
+                // FIXED THE URL HERE! Pointing to your live Render API instead of local 127.0.0.1
+                const apiUrl = `https://oceanova-routing-engine.onrender.com/api/v1/route-analysis?start_lat=${depCoords.lat}&start_lng=${depCoords.lng}&start_name=${encodeURIComponent(depText)}&end_lat=${destCoords.lat}&end_lng=${destCoords.lng}&end_name=${encodeURIComponent(destText)}&speed=${speed}&dwt=${dwt}&target_days=${targetDays}`;
                 
                 const response = await fetch(apiUrl);
                 const data = await response.json();
