@@ -1,4 +1,4 @@
-#AIzaSyDls9T7IoIItLrR-qkingnIVjnOlHHVt1o/2c4ed773928de48bb0cbf503
+#h/2c4ed773928de48bb0cbf503
 import math
 import os
 import pickle
@@ -356,3 +356,7 @@ def compare_suez_vs_cape(
         rec = "CAPE"
         
     return { "suez": suez_data, "cape": cape_data, "recommendation": rec }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app:app", host="0.0.0.0", port=10000)
